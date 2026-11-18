@@ -17,6 +17,17 @@ the Wallet keeps its state in memory and resets when its container restarts.
 
 [docs/wallet_api.md](docs/wallet_api.md).
 
+## Tests
+
+Requires Go 1.27.4. The tests use a fake Wallet and a fake repository,
+so no Docker, database or Wallet is needed.
+
+```bash
+go test -race ./...
+```
+
+`-race` enables the data race detector; add `-v` to see each test.
+
 ## Demo accounts
 
 Seeded by `migrations/002_seed.sql`, one per Wallet user:
