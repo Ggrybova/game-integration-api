@@ -50,3 +50,6 @@
 
 - EN: The Wallet call timeout is 10 s: the mock answers in up to ~9 s, and a shorter timeout would turn calls the Wallet completes into PENDING. The cost: with one retry, a request can wait about 20 s.
 - UA: Таймаут виклику Wallet — 10 с: mock відповідає до ~9 с, і коротший таймаут перетворював би на PENDING виклики, які Wallet завершує. Ціна: з одним повтором запит може чекати близько 20 с.
+
+- EN: The "latest transaction" for oldBalance is ordered by created_dt, not updated_dt: a PENDING withdraw resolved later stores oldBalance − amount computed before newer transactions, while a newer transaction already holds the balance the Wallet returned after it.
+- UA: «Остання транзакція» для oldBalance визначається за created_dt, а не updated_dt: PENDING withdraw, розв'язаний пізніше, зберігає oldBalance − amount, пораховане до новіших транзакцій, а новіша транзакція вже містить баланс, який Wallet повернув після неї.

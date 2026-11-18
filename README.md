@@ -34,14 +34,23 @@ Set in `docker-compose.yml`, because they use the compose service names:
 
 ## Tests
 
-Requires Go 1.27.4. The tests use a fake Wallet and a fake repository,
-so no Docker, database or Wallet is needed.
+Requires Go 1.27.4. The business-rule tests use a fake Wallet and a fake
+repository, so no Docker, database or Wallet is needed.
 
 ```bash
 go test -race ./...
 ```
 
 `-race` enables the data race detector; add `-v` to see each test.
+
+The Postgres tests run only when `TEST_DATABASE_URL` is set; each test
+creates a fresh `game_test` database from `migrations/`, so the `game`
+database is not touched:
+
+```bash
+docker compose up -d db
+TEST_DATABASE_URL='postgres://game:game_dev_password@localhost:5432/game?sslmode=disable' go test ./internal/postgres
+```
 
 ## Demo accounts
 
