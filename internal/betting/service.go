@@ -115,8 +115,8 @@ func (s *Service) withdrawExisting(ctx context.Context, req WithdrawRequest, acc
 
 	switch tx.Status {
 	case TxPending:
-		// Step 6 again, with the stored transactionId and betId.
-		return s.callWallet(ctx, account, tx)
+		// Step 10 first: the earlier attempt may already be applied.
+		return s.callWallet(ctx, account, tx, true)
 	case TxCompleted:
 		bet, err := s.repo.GetBet(ctx, tx.BetID)
 		if err != nil {
@@ -166,11 +166,15 @@ func (s *Service) createAndCall(ctx context.Context, req WithdrawRequest, accoun
 	if err != nil {
 		return WithdrawResult{}, fmt.Errorf("create withdraw: %w", err)
 	}
-	return s.callWallet(ctx, account, tx)
+	return s.callWallet(ctx, account, tx, false)
 }
 
-// callWallet runs steps 6-7 for a stored PENDING withdraw.
-func (s *Service) callWallet(ctx context.Context, account Account, tx Transaction) (WithdrawResult, error) {
+// maxWithdrawCalls bounds the Wallet withdraw calls of one request (9.5).
+const maxWithdrawCalls = 2
+
+// callWallet runs steps 6, 10 and 7 for a stored PENDING withdraw.
+// checkFirst is true when an earlier request already got an unknown outcome.
+func (s *Service) callWallet(ctx context.Context, account Account, tx Transaction, checkFirst bool) (WithdrawResult, error) {
 	walletReq := WalletRequest{
 		UserID:    tx.UserID,
 		Currency:  account.Currency,
@@ -179,33 +183,77 @@ func (s *Service) callWallet(ctx context.Context, account Account, tx Transactio
 		Reference: tx.ID,
 	}
 
-	// Step 6: at most two attempts; only an unknown outcome is retried.
-	var res WalletResult
+	// DB writes after a Wallet call must not be dropped because the
+	// provider closed the connection.
+	dbCtx := context.WithoutCancel(ctx)
+	pending := WithdrawResult{Transaction: tx, Outcome: OutcomePending}
+
+	needCheck := checkFirst
+	for calls := 0; ; {
+		if needCheck {
+			// Step 10: after an unknown outcome, the balance tells whether
+			// the earlier call was applied.
+			switch state, balance := s.checkBalance(ctx, tx); state {
+			case balanceApplied:
+				return s.completeWithdraw(dbCtx, tx, WalletResult{NewBalance: decimal.NewNullDecimal(balance)})
+			case balanceUnclear:
+				return pending, nil
+			}
+			// balanceNotApplied: call the Wallet (again).
+		}
+		if calls == maxWithdrawCalls {
+			return pending, nil
+		}
+
+		// Step 6.
+		res, err := s.wallet.Withdraw(ctx, walletReq)
+		calls++
+		s.logWalletCall(tx, calls, err)
+		switch {
+		case err == nil:
+			return s.completeWithdraw(dbCtx, tx, res)
+		case isRejected(err):
+			// Not applied: keep a FAILED record (8.3, 9.3).
+			if ferr := s.repo.FailTransaction(dbCtx, tx.ID); ferr != nil {
+				return WithdrawResult{}, fmt.Errorf("fail transaction: %w", ferr)
+			}
+			return WithdrawResult{}, err
+		}
+		needCheck = true // unknown outcome
+	}
+}
+
+type balanceState int
+
+const (
+	balanceNotApplied balanceState = iota // balance = oldBalance
+	balanceApplied                        // balance = oldBalance - amount
+	balanceUnclear                        // anything else, or the balance could not be read
+)
+
+// checkBalance is step 10: it reads the Wallet balance (at most two reads)
+// and compares it with the balance stored before the first call. The player
+// lock is held, so no other operation of ours changes it meanwhile.
+func (s *Service) checkBalance(ctx context.Context, tx Transaction) (balanceState, decimal.Decimal) {
+	var balance decimal.Decimal
 	var err error
-	for attempt := 1; attempt <= 2; attempt++ {
-		res, err = s.wallet.Withdraw(ctx, walletReq)
-		s.logWalletCall(tx, attempt, err)
-		if err == nil || isRejected(err) {
+	for read := 1; read <= 2; read++ {
+		balance, err = s.wallet.Balance(ctx, tx.UserID)
+		s.log.Info("wallet balance check", "transactionId", tx.ID, "providerTransactionId", tx.ProviderTransactionID,
+			"userId", tx.UserID, "read", read, "balance", balance, "error", err)
+		if err == nil {
 			break
 		}
 	}
-
-	// DB writes after the Wallet call must not be dropped because the
-	// provider closed the connection.
-	dbCtx := context.WithoutCancel(ctx)
-
 	switch {
-	case err == nil:
-		return s.completeWithdraw(dbCtx, tx, res)
-	case isRejected(err):
-		// Definitely not applied: keep a FAILED record (8.3, 9.3).
-		if ferr := s.repo.FailTransaction(dbCtx, tx.ID); ferr != nil {
-			return WithdrawResult{}, fmt.Errorf("fail transaction: %w", ferr)
-		}
-		return WithdrawResult{}, err
+	case err != nil:
+		return balanceUnclear, decimal.Decimal{}
+	case balance.Equal(tx.OldBalance.Decimal.Sub(tx.Amount)):
+		return balanceApplied, balance
+	case balance.Equal(tx.OldBalance.Decimal):
+		return balanceNotApplied, balance
 	default:
-		// Unknown outcome: the row stays PENDING; a provider retry resolves it.
-		return WithdrawResult{Transaction: tx, Outcome: OutcomePending}, nil
+		return balanceUnclear, balance
 	}
 }
 
