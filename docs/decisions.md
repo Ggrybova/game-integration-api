@@ -53,3 +53,6 @@
 
 - EN: The "latest transaction" for oldBalance is ordered by created_dt, not updated_dt: a PENDING withdraw resolved later stores oldBalance − amount computed before newer transactions, while a newer transaction already holds the balance the Wallet returned after it.
 - UA: «Остання транзакція» для oldBalance визначається за created_dt, а не updated_dt: PENDING withdraw, розв'язаний пізніше, зберігає oldBalance − amount, пораховане до новіших транзакцій, а новіша транзакція вже містить баланс, який Wallet повернув після неї.
+
+- EN: The Wallet client treats any answer it does not recognise (500, an unexpected status, an unreadable 200, a timeout or a dropped connection) as an unknown outcome, never as a rejection: a wrong FAILED lets a retry apply the operation twice, while a wrong PENDING only costs a retry that the Wallet answers with 409.
+- UA: Клієнт Wallet вважає будь-яку нерозпізнану відповідь (500, неочікуваний статус, нечитабельну 200, таймаут чи обрив з'єднання) невідомим результатом, а не відмовою: помилковий FAILED дозволяє повтору застосувати операцію двічі, а помилковий PENDING коштує лише повтору, на який Wallet відповідає 409.
