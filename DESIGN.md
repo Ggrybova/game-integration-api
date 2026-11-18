@@ -7,8 +7,8 @@ Work in progress. To be filled in:
 - UA: Wallet повертає помилку до застосування операції (400/401): транзакція стає FAILED; відповідь 422 INSUFFICIENT_FUNDS або 502 WALLET_ERROR.
 - EN: The Wallet returns an error after applying it (500): the outcome is unknown, so we retry once; if that fails too, the row stays PENDING and the response is 202.
 - UA: Wallet повертає помилку після застосування (500): результат невідомий, тож робимо один повтор; якщо й він невдалий, рядок лишається PENDING, відповідь 202.
-- EN: The Wallet times out: handled like a 500 (one retry, then PENDING and 202).
-- UA: Wallet не відповідає вчасно: так само, як 500 (один повтор, потім PENDING і 202).
+- EN: The Wallet times out (10 s per call, WALLET_TIMEOUT): handled like a 500 (one retry, then PENDING and 202).
+- UA: Wallet не відповідає вчасно (10 с на виклик, WALLET_TIMEOUT): так само, як 500 (один повтор, потім PENDING і 202).
 - EN: Our process stops between the Wallet call and the DB write: the PENDING row is committed before the call, so the call is never lost; the provider's retry gets 409 DuplicatedTransaction from the Wallet and completes the transaction.
 - UA: Наш процес падає між викликом Wallet і записом у БД: PENDING-рядок закомічено до виклику, тож виклик не губиться; повтор провайдера отримує 409 DuplicatedTransaction від Wallet і завершує транзакцію.
 - EN: A provider retries or sends the same request concurrently: the per-player lock serializes the requests, and the providerTransactionId idempotency key gives a replay (200) without a new Wallet call.

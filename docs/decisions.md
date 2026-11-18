@@ -44,3 +44,9 @@
 
 - EN: A providerTransactionId already used by another player answers 404 NOT_FOUND (the transaction belongs to another player, 7.3), also when two players race and the UNIQUE constraint catches it, so the answer does not depend on who came first.
 - UA: providerTransactionId, уже використаний іншим гравцем, дає 404 NOT_FOUND (транзакція належить іншому гравцю, 7.3), зокрема коли двоє гравців змагаються і спрацьовує UNIQUE, тож відповідь не залежить від того, хто встиг першим.
+
+- EN: DATABASE_URL and WALLET_URL are set in docker-compose.yml, not in .env: they depend on the compose service names (db, wallet), not on the user's setup; the database credentials still come from .env.
+- UA: DATABASE_URL і WALLET_URL задано в docker-compose.yml, а не в .env: вони залежать від назв сервісів compose (db, wallet), а не від налаштувань користувача; облікові дані БД і далі беруться з .env.
+
+- EN: The Wallet call timeout is 10 s: the mock answers in up to ~9 s, and a shorter timeout would turn calls the Wallet completes into PENDING. The cost: with one retry, a request can wait about 20 s.
+- UA: Таймаут виклику Wallet — 10 с: mock відповідає до ~9 с, і коротший таймаут перетворював би на PENDING виклики, які Wallet завершує. Ціна: з одним повтором запит може чекати близько 20 с.
