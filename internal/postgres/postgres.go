@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
+	"github.com/Ggrybova/game-integration-api/internal/auth"
 	"github.com/Ggrybova/game-integration-api/internal/betting"
 )
 
@@ -20,8 +21,11 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
-// The compiler checks that Store implements betting.Repository.
-var _ betting.Repository = (*Store)(nil)
+// The compiler checks that Store implements both interfaces.
+var (
+	_ betting.Repository = (*Store)(nil)
+	_ auth.Accounts      = (*Store)(nil)
+)
 
 // New connects to the database and checks the connection,
 // so a wrong DATABASE_URL stops the service at start.
@@ -39,6 +43,23 @@ func New(ctx context.Context, databaseURL string) (*Store, error) {
 
 func (s *Store) Close() {
 	s.pool.Close()
+}
+
+func (s *Store) FindByUsername(ctx context.Context, username string) (int64, string, bool, error) {
+	var (
+		userID int64
+		hash   string
+	)
+	err := s.pool.QueryRow(ctx,
+		`SELECT user_id, password_hash FROM accounts WHERE username = $1`, username,
+	).Scan(&userID, &hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", false, nil
+	}
+	if err != nil {
+		return 0, "", false, fmt.Errorf("find account by username: %w", err)
+	}
+	return userID, hash, true, nil
 }
 
 func (s *Store) GetAccount(ctx context.Context, userID int64) (betting.Account, error) {

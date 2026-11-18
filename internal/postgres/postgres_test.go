@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/Ggrybova/game-integration-api/internal/betting"
 )
@@ -122,6 +123,22 @@ func TestGetAccount(t *testing.T) {
 	a, err := s.GetAccount(context.Background(), player1)
 	if err != nil || a.Currency != "USD" {
 		t.Errorf("GetAccount = %+v, %v; want USD", a, err)
+	}
+}
+
+// The seeded hash matches the password documented in README.md.
+func TestFindByUsername(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	id, hash, found, err := s.FindByUsername(ctx, "player1")
+	if err != nil || !found || id != player1 {
+		t.Fatalf("FindByUsername = %d, found=%v, %v; want %d", id, found, err, int64(player1))
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte("password1")) != nil {
+		t.Error("seeded hash does not match password1")
+	}
+	if _, _, found, err := s.FindByUsername(ctx, "nobody"); found || err != nil {
+		t.Errorf("unknown user: found=%v err=%v; want false, nil", found, err)
 	}
 }
 
