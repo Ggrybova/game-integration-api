@@ -88,7 +88,8 @@ curl -s -m 15 -w '  [%{http_code}]\n' -H "$H" -H 'content-type: application/json
 - **A retry must therefore send the same `reference` AND the same `betId`.** Generate `betId` once and store it before the first call, never regenerate it on a retry.
 - **A rejected request (400) does not consume the key**: after `InsufficientBalance` the same `reference` and `betId` can still be used. Retrying after a definite FAILED is safe.
 - The user is checked before the duplicate: an unknown `userId` gives `UserNotFound` even if the key was already applied.
-- **A 500 or a dropped connection does not mean "not applied"**: about 25% of calls fail in our tests, and in every conclusive case the operation had been applied. Treat them as PENDING, not FAILED.
+- **A 500 or a dropped connection says nothing about the outcome**: about 25% of calls fail; behind a failure the operation may have been applied or not (even a 400 can be lost in a dropped connection). Treat them as PENDING, not FAILED.
+- **The whole balance cannot be withdrawn**: the amount must be strictly less than the balance. With balance 750.50, withdrawing 750.50 gives `InsufficientBalance`, 750.49 is applied (0.01 left), and then 0.01 gives `InsufficientBalance` again.
 - Replaying the same call is always safe. A `409` on replay means "applied earlier", but the response has **no balance**.
 - **Gaps in validation** (we must check these before calling the Wallet): more than two decimals is accepted (`1.005`); a zero amount is accepted (200, balance unchanged, an id is consumed); a missing `reference` is accepted and stored as an empty string, which then works like any other `reference` value in the key.
 - Latency up to ~9 s.

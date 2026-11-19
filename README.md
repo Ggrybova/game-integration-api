@@ -3,6 +3,10 @@
 A Go service that places and settles casino bets on behalf of players,
 on top of an unreliable Wallet service (KenTech backend assessment).
 
+Implemented: `POST /api/v1/auth/login` and `POST /api/v1/withdraw`.
+Not implemented yet: deposit, cancel and `GET /api/v1/player`
+(see [DESIGN.md](DESIGN.md)).
+
 ## Run
 
 Everything in Docker (the service, Postgres and the mock Wallet):
