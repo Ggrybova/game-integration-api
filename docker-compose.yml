@@ -1,0 +1,39 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      WALLET_URL: http://wallet:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      wallet:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+  wallet:
+    image: kentechsp/wallet-client:latest
+    ports:
+      - "8000:8000"
+
+  db:
+    image: postgres:18-alpine3.24
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    ports:
+      - "5432:5432"
+
+volumes:
+  db-data:

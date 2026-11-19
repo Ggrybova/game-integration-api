@@ -1,0 +1,10 @@
+.git
+.env
+.idea
+.DS_Store
+docs
+*.md
+*.out
+coverage.*
+Dockerfile
+docker-compose.yml
