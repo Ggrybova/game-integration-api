@@ -56,9 +56,22 @@ func (b *stubBets) Withdraw(ctx context.Context, req betting.WithdrawRequest) (b
 	return b.res, b.err
 }
 
+// Player answers for the player of the token with a fixed balance, or b.err.
+func (b *stubBets) Player(ctx context.Context, userID int64) (betting.Account, decimal.Decimal, error) {
+	if b.err != nil {
+		return betting.Account{}, decimal.Decimal{}, b.err
+	}
+	return betting.Account{UserID: userID, Currency: "USD"}, decimal.RequireFromString("5000.00"), nil
+}
+
 func do(t *testing.T, bets *stubBets, path, token, body string) (*http.Response, map[string]any, string) {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	return doMethod(t, http.MethodPost, bets, path, token, body)
+}
+
+func doMethod(t *testing.T, method string, bets *stubBets, path, token, body string) (*http.Response, map[string]any, string) {
+	t.Helper()
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -167,5 +180,31 @@ func TestMalformedBody(t *testing.T) {
 	resp, body, _ := do(t, &stubBets{}, "/api/v1/withdraw", "good", `{"amount":`)
 	if resp.StatusCode != 400 || body["code"] != "INVALID_REQUEST" {
 		t.Errorf("status %d, body %v", resp.StatusCode, body)
+	}
+}
+
+// GET /player (8.2): the player from the token, the balance as a number,
+// 502 or 504 when the Wallet cannot be read, never a stale balance.
+func TestPlayer(t *testing.T) {
+	resp, _, raw := doMethod(t, http.MethodGet, &stubBets{}, "/api/v1/player", "good", "")
+	if want := `{"userId":34633089486,"balance":5000,"currency":"USD"}`; resp.StatusCode != 200 || strings.TrimSpace(raw) != want {
+		t.Errorf("status %d, body %s; want 200 %s", resp.StatusCode, raw, want)
+	}
+
+	for _, tt := range []struct {
+		name   string
+		token  string
+		err    error
+		status int
+		code   string
+	}{
+		{"no token", "", nil, 401, "UNAUTHORIZED"},
+		{"wallet error", "good", fmt.Errorf("%w: read balance", betting.ErrWalletUnavailable), 502, "WALLET_ERROR"},
+		{"wallet timeout", "good", fmt.Errorf("%w: read balance", betting.ErrWalletTimeout), 504, "WALLET_TIMEOUT"},
+	} {
+		resp, body, _ := doMethod(t, http.MethodGet, &stubBets{err: tt.err}, "/api/v1/player", tt.token, "")
+		if resp.StatusCode != tt.status || body["code"] != tt.code {
+			t.Errorf("%s: status %d, body %v; want %d %s", tt.name, resp.StatusCode, body, tt.status, tt.code)
+		}
 	}
 }

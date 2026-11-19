@@ -43,6 +43,23 @@ func NewService(repo Repository, wallet Wallet, log *slog.Logger) *Service {
 	return &Service{repo: repo, wallet: wallet, log: log, locks: newPlayerLocks()}
 }
 
+// Player returns the player's account and the balance read from the Wallet
+// now (8.2); a stale balance is never returned.
+func (s *Service) Player(ctx context.Context, userID int64) (Account, decimal.Decimal, error) {
+	account, err := s.repo.GetAccount(ctx, userID)
+	if err != nil {
+		return Account{}, decimal.Decimal{}, fmt.Errorf("get account: %w", err)
+	}
+	balance, err := s.wallet.Balance(ctx, userID)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return Account{}, decimal.Decimal{}, fmt.Errorf("%w: read balance: %w", ErrWalletTimeout, err)
+	}
+	if err != nil {
+		return Account{}, decimal.Decimal{}, fmt.Errorf("%w: read balance: %w", ErrWalletUnavailable, err)
+	}
+	return account, balance, nil
+}
+
 func (s *Service) Withdraw(ctx context.Context, req WithdrawRequest) (WithdrawResult, error) {
 	// Step 1: validate the fields.
 	if err := validateWithdraw(req); err != nil {

@@ -25,6 +25,7 @@ type Auth interface {
 
 type Bets interface {
 	Withdraw(ctx context.Context, req betting.WithdrawRequest) (betting.WithdrawResult, error)
+	Player(ctx context.Context, userID int64) (betting.Account, decimal.Decimal, error)
 }
 
 type server struct {
@@ -43,7 +44,27 @@ func New(a Auth, b Bets, log *slog.Logger) http.Handler {
 	})
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/withdraw", s.requireAuth(s.withdraw))
+	mux.HandleFunc("GET /api/v1/player", s.requireAuth(s.player))
 	return mux
+}
+
+// player answers 8.2: the player comes from the token, the balance from the Wallet now.
+func (s *server) player(w http.ResponseWriter, r *http.Request) {
+	account, balance, err := s.bets.Player(r.Context(), r.Context().Value(userIDKey{}).(int64))
+	if errors.Is(err, betting.ErrWalletTimeout) {
+		s.log.Warn("wallet timeout", "error", err)
+		writeError(w, http.StatusGatewayTimeout, "WALLET_TIMEOUT", "the wallet did not answer in time")
+		return
+	}
+	if err != nil {
+		s.bettingError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, struct {
+		UserID   int64           `json:"userId"`
+		Balance  decimal.Decimal `json:"balance"`
+		Currency string          `json:"currency"`
+	}{account.UserID, balance, account.Currency})
 }
 
 type userIDKey struct{}

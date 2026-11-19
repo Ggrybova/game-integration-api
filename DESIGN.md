@@ -2,7 +2,7 @@
 
 ## Scope of this submission
 
-Implemented: login with JWT, Withdraw (bet placement) with idempotency, the three Wallet outcomes, PENDING resolution and concurrency safety; Postgres schema and seed; docker compose; tests with a fake Wallet. Not implemented in the time available: Deposit, Cancel and GET /api/v1/player. The sections below describe Withdraw.
+Implemented: login with JWT, GET /api/v1/player (the balance is read from the Wallet at request time; 502 or 504 if it cannot be read, never a stale value), Withdraw (bet placement) with idempotency, the three Wallet outcomes, PENDING resolution and concurrency safety; Postgres schema and seed; docker compose; tests with a fake Wallet. Not implemented in the time available: Deposit and Cancel. The sections below describe Withdraw.
 
 ## 1. Behaviour in each failure situation (withdraw)
 
@@ -38,7 +38,7 @@ Implemented: login with JWT, Withdraw (bet placement) with idempotency, the thre
 
 ## Обсяг цієї роботи
 
-Реалізовано: логін з JWT, Withdraw (ставка) з ідемпотентністю, трьома результатами Wallet, розв'язанням PENDING і захистом від гонок; схема і seed Postgres; docker compose; тести з fake Wallet. Не реалізовано за відведений час: Deposit, Cancel і GET /api/v1/player. Розділи нижче описують Withdraw.
+Реалізовано: логін з JWT, GET /api/v1/player (баланс читається з Wallet у момент запиту; 502 або 504, якщо його не вдалося прочитати, ніколи не застаріле значення), Withdraw (ставка) з ідемпотентністю, трьома результатами Wallet, розв'язанням PENDING і захистом від гонок; схема і seed Postgres; docker compose; тести з fake Wallet. Не реалізовано за відведений час: Deposit і Cancel. Розділи нижче описують Withdraw.
 
 ## 1. Поведінка в кожній ситуації збою (withdraw)
 

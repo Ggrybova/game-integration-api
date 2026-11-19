@@ -684,3 +684,23 @@ func TestWithdrawPendingResolvedByBalance(t *testing.T) {
 		t.Errorf("Wallet withdraw calls = %d, want 2 (none on the retry)", len(w.calls))
 	}
 }
+
+// Player reads the balance from the Wallet at request time and tells a
+// timeout (504) from another failure (502).
+func TestPlayer(t *testing.T) {
+	w := &fakeWallet{balance: decimal.RequireFromString("4996.995")}
+	svc, _ := newTestService(w)
+	account, balance, err := svc.Player(context.Background(), testUser)
+	if err != nil || account.Currency != "USD" || !balance.Equal(decimal.RequireFromString("4996.995")) {
+		t.Errorf("Player = %+v, %s, %v", account, balance, err)
+	}
+
+	w.balanceErr = errWalletDown
+	if _, _, err := svc.Player(context.Background(), testUser); !errors.Is(err, ErrWalletUnavailable) {
+		t.Errorf("err = %v, want ErrWalletUnavailable", err)
+	}
+	w.balanceErr = fmt.Errorf("wallet balance: %w", context.DeadlineExceeded)
+	if _, _, err := svc.Player(context.Background(), testUser); !errors.Is(err, ErrWalletTimeout) {
+		t.Errorf("err = %v, want ErrWalletTimeout", err)
+	}
+}

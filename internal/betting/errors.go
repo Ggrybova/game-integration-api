@@ -12,4 +12,5 @@ var (
 	ErrNotFound          = errors.New("not found")
 	ErrConflict          = errors.New("conflict")
 	ErrWalletUnavailable = errors.New("wallet unavailable")
+	ErrWalletTimeout     = errors.New("wallet timeout") // only for reads (7.3, 504)
 )
